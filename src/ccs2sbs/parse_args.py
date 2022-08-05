@@ -21,7 +21,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser = argparse.ArgumentParser(
         add_help=True,
         formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter),
-        description="himut identifies high-confidence single molecule somatic single-base substitutions from PacBio CCS reads",
+        description="ccs2sbs calls single-base substitutions from PacBio CCS reads",
     )
     parser.add_argument(
         "-v",
@@ -171,6 +171,12 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         default=1,
         required=False,
         help="maximum number of threads to be used"
+    )
+    parser_call.add_argument(
+        "--phase",
+        required=False,
+        action="store_true",
+        help="return phased somatic substitutions"
     )
     parser_call.add_argument(
         "-o",

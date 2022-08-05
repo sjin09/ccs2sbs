@@ -3,22 +3,22 @@ __version__ = "0.0.1"
 __author__ = "Sangjin Lee"
 
 # modules
-import basic.util
-import basic.caller
-import basic.vcflib 
-import basic.mutlib 
-from basic.parse_args import parse_args
+import ccs2sbs.util
+import ccs2sbs.caller
+import ccs2sbs.vcflib 
+from ccs2sbs.parse_args import parse_args
 
 def main():
     parser, options = parse_args(program_version=__version__)
     if options.sub == "call":  # call somatic substitutions
-        basic.util.check_num_threads(options.threads)
-        print("himut is calling somatic single base substitutions")
-        basic.caller.call_somatic_substitutions(
+        ccs2sbs.util.check_num_threads(options.threads)
+        ccs2sbs.caller.call_somatic_substitutions(
             options.bam, # input # bam_file
             options.vcf, # germline mutations
+            options.phased_vcf,  # phased germline mutations
             options.region, # target contigs/scaffolds/chromosomes
             options.region_list, # target contigs/scaffolds/chromosomes fofn
+            options.ploidy, # haploid, diploid or polyploid
             options.min_mapq, # int: 0-60
             options.min_trim, # float: 0.01 - 0.1
             options.min_sequence_identity, # float: blast sequence identity
@@ -44,4 +44,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    basic.util.exit()
+    ccs2sbs.util.exit()

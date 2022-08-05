@@ -4,9 +4,9 @@ import pysam
 import random
 import natsort
 import numpy as np
-import basic.util
-import basic.cslib
-import basic.vcflib
+import ccs2sbs.util
+import ccs2sbs.cslib
+import ccs2sbs.vcflib
 from typing import List, Dict, Tuple
 
 
@@ -54,7 +54,7 @@ def get_sample(bam_file: str) -> str:
         print(
             "samtools reheader in.header.sam in.bam > out.bam command can be used to insert a new header"
         )
-        basic.util.exit() 
+        ccs2sbs.util.exit() 
 
 
 def get_tname2tsize(bam_file: str) -> Tuple[List[str], Dict[str, int]]:
@@ -74,7 +74,7 @@ def get_tname2tsize(bam_file: str) -> Tuple[List[str], Dict[str, int]]:
     if len(tname_lst) == 0:
         print("@SQ header is missing from BAM file")
         print("Please use samtools reheader to insert approprirate header to your BAM file")
-        basic.util.exit()
+        ccs2sbs.util.exit()
     return tname_lst, tname2tsize
 
 
@@ -93,7 +93,7 @@ def get_thresholds(
     if len(chrom_lst) == 0:
         print("target is missing")
         print("Please check .vcf file or .target file")
-        basic.util.exit() 
+        ccs2sbs.util.exit() 
 
     qlen_lst = []
     random.seed(10)

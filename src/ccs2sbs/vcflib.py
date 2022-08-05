@@ -2,8 +2,8 @@ import tabix
 import cyvcf2
 import natsort
 import numpy as np 
-import himut.util
-import himut.bamlib
+import ccs2sbs.util
+import ccs2sbs.bamlib
 from datetime import datetime
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
@@ -93,9 +93,9 @@ def get_vcf_header(
         "##fileformat=VCFv4.2",
         '##FILTER=<ID=PASS,Description="All filters passed">',
         "##fileDate={}".format(datetime.now().strftime("%d%m%Y")),
-        "##source=himut",
+        "##source=ccs2sbs",
         "##source_version={}".format(version),
-        '##content=himut somatic single base substitutions',
+        '##content=ccs2sbs somatic single base substitutions',
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
         '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Conditional genotype quality">',
         '##FORMAT=<ID=BQ,Number=1,Type=Float,Description="Average base quality">',
@@ -106,18 +106,18 @@ def get_vcf_header(
         '##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase set">',
     ]
 
-    tname_lst, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
+    tname_lst, tname2tsize = ccs2sbs.bamlib.get_tname2tsize(bam_file)
     for tname in tname_lst:
         vcf_header_lst.append("##contig=<ID={},length={}>".format(tname, tname2tsize[tname]))
 
     vcf_header_lst.append(
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(himut.bamlib.get_sample(bam_file))
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(ccs2sbs.bamlib.get_sample(bam_file))
     )
     vcf_header = "\n".join(vcf_header_lst)
     return vcf_header
 
 
-def get_himut_vcf_header(
+def get_ccs2sbs_vcf_header(
     bam_file: str,
     vcf_file: str,
     phased_vcf_file: str,
@@ -140,8 +140,6 @@ def get_himut_vcf_header(
     md_threshold: int,
     min_hap_count: int,
     threads: int,
-    create_panel_of_normals: bool,
-    tree_of_life_sample: bool,
     phase: bool,
     version: str,
     out_file: str,
@@ -150,9 +148,9 @@ def get_himut_vcf_header(
     vcf_header_lst = [
         "##fileformat=VCFv4.2",
         "##fileDate={}".format(datetime.now().strftime("%d%m%Y")),
-        "##source=himut",
+        "##source=ccs2sbs",
         "##source_version={}".format(version),
-        '##content=himut somatic single base substitutions',
+        '##content=ccs2sbs somatic single base substitutions',
         '##FILTER=<ID=PASS,Description="All filters passed">',
         '##FILTER=<ID=LowBQ,Description="Base quality score is below minimum base quality score of {}">'.format(min_bq),
         '##FILTER=<ID=CommonVariant,Description="Substitution is found within the provided VCF file">',
@@ -199,22 +197,12 @@ def get_himut_vcf_header(
         out_file 
     )
     if phase:
-        if tree_of_life_sample and not create_panel_of_normals:
-            cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} {} --phase --tree_life_sample".format(bam_file, vcf_file, phased_vcf_file, cmdline)
-        elif not tree_of_life_sample and create_panel_of_normals:
-            cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} {} --phase --create_panel_of_normals".format(bam_file, vcf_file, phased_vcf_file, cmdline)
-        elif not tree_of_life_sample and not create_panel_of_normals:
-            cmdline = "##himut_command=himut call -i {} --vcf {} --phased_vcf {} --common_snps {} --panel_of_normals {} {} --phase".format(bam_file, vcf_file, phased_vcf_file, common_snps, panel_of_normals, cmdline)
+        cmdline = "##ccs2sbs_command=ccs2sbs call -i {} --vcf {} --phased_vcf {} --common_snps {} --panel_of_normals {} {} --phase".format(bam_file, vcf_file, phased_vcf_file, common_snps, panel_of_normals, cmdline)
     else:
-        if tree_of_life_sample and not create_panel_of_normals:
-            cmdline = "##himut_command=himut call -i {} --vcf {} {} --tree_life_sample".format(bam_file, vcf_file, cmdline)
-        elif not tree_of_life_sample and create_panel_of_normals:
-            cmdline = "##himut_command=himut call -i {} --vcf {} {} --create_panel_of_normals".format(bam_file, vcf_file, cmdline)
-        elif not tree_of_life_sample and not create_panel_of_normals:
-            cmdline = "##himut_command=himut call -i {} --vcf {} --common_snps {} --panel_of_normals {} {}".format(bam_file, vcf_file, common_snps, panel_of_normals, cmdline)
+        cmdline = "##ccs2sbs_command=ccs2sbs call -i {} --vcf {} --common_snps {} --panel_of_normals {} {}".format(bam_file, vcf_file, common_snps, panel_of_normals, cmdline)
     vcf_header_lst.append(cmdline)
     vcf_header_lst.append(
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(himut.bamlib.get_sample(bam_file))
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(ccs2sbs.bamlib.get_sample(bam_file))
     )
     vcf_header = "\n".join(vcf_header_lst)
     return vcf_header
@@ -508,7 +496,7 @@ def dump_phased_hetsnps(
                 hetsnp2phase_set[hetsnp] = phase_set 
 
     o = open(out_file, "w")
-    o.write("{}\n".format(himut.vcflib.get_vcf_header(bam_file, version)))
+    o.write("{}\n".format(ccs2sbs.vcflib.get_vcf_header(bam_file, version)))
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file):
             if line.startswith("#"):
@@ -566,7 +554,7 @@ def dump_hblock_statistics(
     o.close()
 
 
-def dump_himut_sbs(
+def dump_ccs2sbs_sbs(
     chrom_lst: List[str],
     chrom2tsbs_lst: Dict[str, List[Tuple[str, int, str, str, str, int, int, int, float]]],
     phase: bool,
@@ -576,7 +564,7 @@ def dump_himut_sbs(
 
     if not out_file.endswith(".vcf"):
         print("VCF file must have .vcf suffix")
-        himut.util.exit()
+        ccs2sbs.util.exit()
         
     o = open(out_file, "w")
     p = open(out_file.replace(".vcf", ".single_molecule_mutations.vcf"), "w")
@@ -612,7 +600,7 @@ def dump_himut_sbs(
     p.close()
     
     
-def dump_himut_dbs(
+def dump_ccs2sbs_dbs(
     chrom_lst: List[str],
     chrom2tdbs_lst: Dict[str, List[Tuple[str, int, str, str, int, int, int, float]]],
     phase: bool,
@@ -639,7 +627,7 @@ def dump_himut_dbs(
     o.close()
 
 
-def dump_himut_statistics(
+def dump_ccs2sbs_statistics(
     chrom_lst: List[str], 
     genome_stat_hsh: Dict[str, List[int]], 
     stats_file: str

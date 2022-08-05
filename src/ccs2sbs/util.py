@@ -251,12 +251,10 @@ def check_caller_input_exists(
     phased_vcf_file: str,
     region: str,
     region_lst: str,
+    ploidy: str,
     common_snps: str,
     panel_of_normals: str,
     phase: bool,
-    tree_of_life_sample: bool,
-    create_panel_of_normals: bool,
-    ploidy: str,
     out_file: str,
 ) -> None:
 
@@ -271,12 +269,8 @@ def check_caller_input_exists(
     counter += check_out_file(out_file)
     if phase:
         counter += check_phased_vcf_file(phased_vcf_file)
-        
-    if not tree_of_life_sample and create_panel_of_normals:
-        counter += check_vcf_file(common_snps, "--common_snps")
-    elif not tree_of_life_sample and not create_panel_of_normals:
-        counter += check_vcf_file(common_snps, "--common_snps")
-        counter += check_vcf_file(panel_of_normals, "--panel_of_normals")
+    counter += check_vcf_file(common_snps, "--common_snps")
+    counter += check_vcf_file(panel_of_normals, "--panel_of_normals")
 
     if not (ploidy in ("haploid", "diploid")):
         print("himut currently doesn't support samples with {} ploidy".format(ploidy))
@@ -313,7 +307,7 @@ def get_blast_sequence_identity(read) -> float:
 
     mismatch_count = 0
     for cstuple in read.cstuple_lst:
-        mstate, _ref, _alt, ref_len, alt_len = cstuple
+        mstate, _, _, ref_len, alt_len = cstuple
         if mstate == 1:  # match
             continue
         elif mstate == 2:  # mismatch: snp
@@ -326,7 +320,7 @@ def get_blast_sequence_identity(read) -> float:
     return blast_sequence_identity
 
 
-def get_sbs_candidates(
+def get_contamination_state( ## TODO
     read,
     sample_snp_set: Set[Tuple[str, int, str, str]],
     common_snp_set: Set[Tuple[str, int, str, str]],
@@ -334,10 +328,7 @@ def get_sbs_candidates(
 
     common_cnt = 0
     sample_cnt = 0    
-    qsbs_bq_lst = [] 
-    tsbs_candidate_lst = []
-    qsbs_candidate_lst = []
-    for idx, tsbs in enumerate(read.tsbs_lst):
+    for tsbs in read.tsbs_lst:
         if tsbs in common_snp_set and tsbs in sample_snp_set:
             sample_cnt += 1
         elif tsbs not in common_snp_set and tsbs in sample_snp_set:
@@ -345,13 +336,11 @@ def get_sbs_candidates(
         elif tsbs in common_snp_set and tsbs not in sample_snp_set:
             common_cnt += 1
         elif tsbs not in common_snp_set and tsbs not in sample_snp_set:
-            tsbs_candidate_lst.append(tsbs)
-            qsbs_bq_lst.append(read.qsbs_bq_lst[idx])
-            qsbs_candidate_lst.append(read.qsbs_lst[idx])
-
+            continue
+        
     if common_cnt == 0 and sample_cnt != 0:  # normal reads
-        return False, tsbs_candidate_lst, qsbs_candidate_lst, qsbs_bq_lst
+        return False
     else:  # potential contamination
-        return True, [], [], []        
+        return True
 
 
