@@ -332,7 +332,7 @@ def call_somatic_substitutions(
     qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold = ccs2sbs.bamlib.get_thresholds(
         bam_file, chrom_lst, tname2tsize
     )
-    vcf_header = ccs2sbs.vcflib.get_ccs2sbs_vcf_header(
+    vcf_header = ccs2sbs.vcflib.get_vcf_header(
         bam_file,
         vcf_file,
         phased_vcf_file,

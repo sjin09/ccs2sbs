@@ -9,29 +9,6 @@ from collections import defaultdict
 from typing import Dict, List, Set, Tuple
 
 
-ROW_NAMES = [
-    "num_reads", 
-    "num_not_primary",  
-    "num_low_mapq", 
-    "num_abnormal", 
-    "num_low_qv", 
-    "num_low_identity", 
-    "num_contamination", 
-    "num_hq_reads", 
-    "num_sub_candidates", 
-    "num_bq_filtered_sbs", 
-    "num_pon_filtered_sbs", 
-    "num_trimmed_sbs", 
-    "num_mismatch_filtered_sbs", 
-    "num_uncallable_sbs", 
-    "num_ab_filtered_sbs", 
-    "num_md_filtered_sbs", 
-    "num_sbs", 
-    "num_unphased_sbs", 
-    "num_phased_sbs"
-]
-
-
 class VCF:
     def __init__(self, line):
         arr = line.strip().split()
@@ -85,39 +62,6 @@ def get_sample(vcf_file: str) -> str:
 
 
 def get_vcf_header(
-    bam_file: str,
-    version: str,
-) -> str:
-
-    vcf_header_lst = [
-        "##fileformat=VCFv4.2",
-        '##FILTER=<ID=PASS,Description="All filters passed">',
-        "##fileDate={}".format(datetime.now().strftime("%d%m%Y")),
-        "##source=ccs2sbs",
-        "##source_version={}".format(version),
-        '##content=ccs2sbs somatic single base substitutions',
-        '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
-        '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Conditional genotype quality">',
-        '##FORMAT=<ID=BQ,Number=1,Type=Float,Description="Average base quality">',
-        '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">',
-        '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth for each allele">',
-        '##FORMAT=<ID=VAF,Number=A,Type=Float,Description="Variant allele fractions">',
-        '##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods rounded to the closest integer">',
-        '##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase set">',
-    ]
-
-    tname_lst, tname2tsize = ccs2sbs.bamlib.get_tname2tsize(bam_file)
-    for tname in tname_lst:
-        vcf_header_lst.append("##contig=<ID={},length={}>".format(tname, tname2tsize[tname]))
-
-    vcf_header_lst.append(
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(ccs2sbs.bamlib.get_sample(bam_file))
-    )
-    vcf_header = "\n".join(vcf_header_lst)
-    return vcf_header
-
-
-def get_ccs2sbs_vcf_header(
     bam_file: str,
     vcf_file: str,
     phased_vcf_file: str,
@@ -451,109 +395,6 @@ def get_phased_hetsnps(
     return hpos_lst, filtered_hblock_lst, phased_hetsnp_lst, hidx2hetsnp, hidx2hstate, hetsnp2bidx, hetsnp2hidx
 
 
-def dump_phased_hetsnps(
-    bam_file: str,
-    vcf_file: str,
-    chrom_lst: List[str],
-    tname2tsize: Dict[str, int],
-    chrom2hblock_lst: List[List[Tuple[int, int]]],
-    version: str,
-    out_file: str,
-) -> None:
-
-    hetsnp2hstate = {}
-    hetsnp2phase_set = {}
-    chrom2hetsnp_lst = defaultdict(list)
-    chrom2hidx2hetsnp = defaultdict(dict)
-    chrom2hetsnp2hidx = defaultdict(dict)
-    if vcf_file.endswith(".vcf"):
-        for line in open(vcf_file):
-            if line.startswith("#"):
-                continue
-            v = VCF(line)
-            if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                chrom2hetsnp_lst[v.chrom].append((v.chrom, v.pos, v.ref, v.alt))
-    elif vcf_file.endswith(".bgz"):
-        tb = tabix.open(vcf_file)
-        for chrom in chrom_lst:
-            records = tb.query(chrom, 0, tname2tsize[chrom])
-            for record in records:
-                v = VCF("\t".join(record))            
-                if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                    chrom2hetsnp_lst[v.chrom].append((v.chrom, v.pos, v.ref, v.alt))
-    for chrom, hetsnp_lst in chrom2hetsnp_lst.items():
-        for hidx, hetsnp in enumerate(hetsnp_lst):
-            chrom2hidx2hetsnp[chrom][hidx] = hetsnp
-            chrom2hetsnp2hidx[chrom][hetsnp] = hidx
-    del chrom2hetsnp_lst 
-    
-    for chrom, hblock_lst in chrom2hblock_lst.items():
-        for hblock in hblock_lst:
-            phase_set = chrom2hidx2hetsnp[chrom][hblock[0][0]][1]
-            for (hidx, hstate) in hblock:
-                hetsnp = chrom2hidx2hetsnp[chrom][hidx]
-                hetsnp2hstate[hetsnp] = hstate
-                hetsnp2phase_set[hetsnp] = phase_set 
-
-    o = open(out_file, "w")
-    o.write("{}\n".format(ccs2sbs.vcflib.get_vcf_header(bam_file, version)))
-    if vcf_file.endswith(".vcf"):
-        for line in open(vcf_file):
-            if line.startswith("#"):
-                continue
-            v = VCF(line)
-            if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                hetsnp = (v.chrom, v.pos, v.ref, v.alt)
-                fmt, sample_fmt = line.strip().split()[-2:]
-                if hetsnp in hetsnp2hstate:
-                    phase_set = hetsnp2phase_set[hetsnp]
-                    sample_gt = "0|1" if hetsnp2hstate[hetsnp] == "0" else "1|0"
-                    sample_fmt_arr = sample_fmt.split(":")
-                    sample_fmt_arr[0] = sample_gt
-                    o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:{}\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, ":".join(sample_fmt_arr), phase_set))
-                else:
-                    o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:.\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, sample_fmt))
-    elif vcf_file.endswith(".bgz"):
-        tb = tabix.open(vcf_file)
-        for chrom in chrom_lst:
-            records = tb.query(chrom, 0, tname2tsize[chrom])
-            for record in records:
-                line = "\t".join(record)
-                v = VCF(line)            
-                fmt, sample_fmt = line.strip().split()[-2:]
-                if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                    hetsnp = (v.chrom, v.pos, v.ref, v.alt)
-                    if hetsnp in hetsnp2hstate:
-                        phase_set = hetsnp2phase_set[hetsnp]
-                        sample_gt = "0|1" if hetsnp2hstate[hetsnp] == "0" else "1|0"
-                        sample_fmt_arr = sample_fmt.split(":")
-                        sample_fmt_arr[0] = sample_gt
-                        o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:{}\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, ":".join(sample_fmt_arr), phase_set))
-                    else:
-                        o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:.\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, sample_fmt))
-    o.close()
-
-
-def dump_hblock_statistics(
-    chrom_lst: List[str],
-    chrom2hblock_statistics: Dict[str, Tuple[int, int, int, int, int]],
-    log_file: str, 
-) -> None:
-
-    o = open(log_file, "w")
-    o.write(
-        "chrom\thetsnp_count\tblock_count\tsmallest_block\tlargest_block\tshortest_block (bp)\tlongest_block (bp)\n"
-    )
-    for chrom in chrom_lst:
-        statistics = chrom2hblock_statistics[chrom]
-        o.write(
-            "{0}\t{1[0]}\t{1[1]}\t{1[2]}\t{1[3]:,}\t{1[4]:,}\t{1[5]}\n".format(
-                chrom, statistics
-            )
-        )
-    o.close()
-
-
 def dump_ccs2sbs_sbs(
     chrom_lst: List[str],
     chrom2tsbs_lst: Dict[str, List[Tuple[str, int, str, str, str, int, int, int, float]]],
@@ -598,53 +439,4 @@ def dump_ccs2sbs_sbs(
                     )
     o.close()
     p.close()
-    
-    
-def dump_ccs2sbs_dbs(
-    chrom_lst: List[str],
-    chrom2tdbs_lst: Dict[str, List[Tuple[str, int, str, str, int, int, int, float]]],
-    phase: bool,
-    header: str,
-    out_file: str
-) -> None:
 
-    o = open(out_file.replace(".vcf", ".dbs.vcf"), "w")
-    o.write("{}\n".format(header))
-    for chrom in chrom_lst:
-        for (chrom, pos, ref, alt, bq, total_count, ref_count, alt_count, vaf, phase_set) in chrom2tdbs_lst[chrom]:
-            if phase: 
-                o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\tPASS\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
-                        chrom, pos, ref, alt, bq, total_count, ref_count, alt_count, vaf, phase_set
-                    )
-                )
-            else:
-                o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\tPASS\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
-                        chrom, pos, ref, alt, bq, total_count, ref_count, alt_count, vaf
-                    )
-                )
-    o.close()
-
-
-def dump_ccs2sbs_statistics(
-    chrom_lst: List[str], 
-    genome_stat_hsh: Dict[str, List[int]], 
-    stats_file: str
-) -> None:
- 
-    ncol = len(chrom_lst)
-    nrow = len(ROW_NAMES)
-    dt = np.zeros((nrow, ncol))
-    for idx, chrom in enumerate(chrom_lst):
-        for jdx, count in enumerate(genome_stat_hsh[chrom]): 
-            dt[jdx][idx] = count
-    
-    o = open(stats_file, "w")
-    genome_lst = chrom_lst + ["total"] 
-    o.write("{:30}{}\n".format("", "\t".join(genome_lst)))
-    for kdx in range(nrow):
-        row_sum =  str(int(np.sum(dt[kdx])))
-        stats = "\t".join([str(int(stat)) for stat in dt[kdx].tolist()] + [row_sum])
-        o.write("{:30}{}\n".format(ROW_NAMES[kdx], stats))
-    o.close()
