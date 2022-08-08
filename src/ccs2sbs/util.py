@@ -318,29 +318,3 @@ def get_blast_sequence_identity(read) -> float:
             mismatch_count += ref_len
     blast_sequence_identity = (read.target_alignment_length - mismatch_count)/float(read.target_alignment_length)
     return blast_sequence_identity
-
-
-def get_contamination_state( ## TODO
-    read,
-    sample_snp_set: Set[Tuple[str, int, str, str]],
-    common_snp_set: Set[Tuple[str, int, str, str]],
-) -> Tuple[bool, List[Tuple[str, int, str, str]], List[Tuple[str, int, str, str]], List[int]]:
-
-    common_cnt = 0
-    sample_cnt = 0    
-    for tsbs in read.tsbs_lst:
-        if tsbs in common_snp_set and tsbs in sample_snp_set:
-            sample_cnt += 1
-        elif tsbs not in common_snp_set and tsbs in sample_snp_set:
-            sample_cnt += 1
-        elif tsbs in common_snp_set and tsbs not in sample_snp_set:
-            common_cnt += 1
-        elif tsbs not in common_snp_set and tsbs not in sample_snp_set:
-            continue
-        
-    if common_cnt == 0 and sample_cnt != 0:  # normal reads
-        return False
-    else:  # potential contamination
-        return True
-
-

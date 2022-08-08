@@ -16,10 +16,10 @@ from collections import defaultdict, Counter
 
 
 class METRICS:
-    a: int = 0
-    b: int = 0
-    c: int = 0
-    d: int = 0
+    match_post_filter_cnt: int = 0 
+    mismatch_post_filter_cnt: int = 0
+    match_pre_filter_cnt: int = 0
+    mismatch_pre_filter_cnt: int = 0
    
     
 def update_allelecounts(
@@ -90,6 +90,7 @@ def get_somatic_substitutions(
     common_snps: str,
     panel_of_normals: str,
     loci_lst: List[Tuple[str, int, int]],
+    ploidy: str,
     min_mapq: int,
     min_trim: float,
     qlen_mean: int,
@@ -104,11 +105,9 @@ def get_somatic_substitutions(
     min_ref_count: int,
     min_alt_count: int,
     md_threshold: int,
-    phase: bool,
-    ploidy: str,
     min_hap_count: int,
+    phase: bool,
     chrom2tsbs_lst: Dict[str, List[List[Tuple[str, int, str, str, int, int, int, int, str]]]],
-    chrom2tsbs_statistics: Dict[str, List[int]],
 ) -> List[Tuple[str, int, str, str, int, int, int, float, float]]:
 
     m = METRICS()
@@ -162,9 +161,6 @@ def get_somatic_substitutions(
                     ccs_somatic_qsbs_candidate_bq_lst.append(read.qsbs_bq_lst[idx])
                 read2tpos2qbase[read.qname] = update_allelecounts(read, tpos2allelecounts, tpos2qbase2bq_lst, tpos2qbase2read_lst)
 
-                # for tsbs in ccs_somatic_tsbs_candidate_lst: ## TODO
-                #     somatic_tsbs_candidate_lst.append(tsbs)
-                    
                 if not read.is_primary:
                     continue
 
@@ -182,15 +178,16 @@ def get_somatic_substitutions(
 
                 if ccs2sbs.util.get_blast_sequence_identity(read) < min_sequence_identity:
                     continue
-
-                if ccs2sbs.util.get_contamination_state(read, sample_snp_set, common_snp_set):
+                
+                if sum([1 for tsbs in ccs_somatic_tsbs_candidate_lst if tsbs in common_snp_set]) > 0:
                     continue
-
+                
                 if len(ccs_somatic_tsbs_candidate_lst) == 0:
                     continue
                 
-                for tsbs in ccs_somatic_tsbs_candidate_lst: ## TODO
-                    somatic_tsbs_candidate_lst.append(tsbs)
+                # print(read.qname, ccs_somatic_tsbs_candidate_lst)
+                # for tsbs in ccs_somatic_tsbs_candidate_lst: ## TODO
+                #     somatic_tsbs_candidate_lst.append(tsbs)
                
                 trimmed_qstart = math.floor(min_trim * read.qlen)
                 trimmed_qend = math.ceil((1 - min_trim) * read.qlen)
@@ -222,7 +219,7 @@ def get_somatic_substitutions(
 
                     if mismatch_count > max_mismatch_count:
                         continue
-                    somatic_tsbs_candidate_lst.append(tsbs) ## TODO
+                    somatic_tsbs_candidate_lst.append(tsbs) 
 
             for tsbs in set(somatic_tsbs_candidate_lst):
                 _, tpos, ref, alt = tsbs 
@@ -262,7 +259,9 @@ def get_somatic_substitutions(
                             alt_hap = list(alt_hap2count.keys())[0]
                             if alt_hap == ".":
                                 continue
-
+                        else:
+                            continue
+                        
                         ref_hap = "1" if alt_hap == "0" else "0"
                         hap2count = ccs2sbs.haplib.get_region_hap2count( 
                             ref_read_lst, read2tpos2qbase, hblock_lst[bidx], hidx2hetsnp,
@@ -276,10 +275,8 @@ def get_somatic_substitutions(
                         somatic_tsbs_lst.append(
                             (chrom, tpos, ref, alt, "PASS", bq, total_count, ref_count, alt_count, vaf, ".")
                         )
-
                 # if phase:
-                #     phase_set = "."
-                #     somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, total_count, ref_count, alt_count, vaf, phase_set))
+                #     somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, total_count, ref_count, alt_count, vaf, "."))
                 # else: 
                 #     somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, total_count, ref_count, alt_count, vaf, "."))
                     
@@ -363,7 +360,6 @@ def call_somatic_substitutions(
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2tsbs_lst = manager.dict()
-    chrom2tsbs_statistics = manager.dict()
     get_somatic_substitutions_arg_lst = [
         (
             chrom,
@@ -374,6 +370,7 @@ def call_somatic_substitutions(
             common_snps,
             panel_of_normals,
             chrom2loci_lst[chrom],
+            ploidy,
             min_mapq,
             min_trim,
             qlen_mean,
@@ -388,11 +385,9 @@ def call_somatic_substitutions(
             min_ref_count,
             min_alt_count,
             md_threshold,
-            phase,
-            ploidy,
             min_hap_count,
+            phase,
             chrom2tsbs_lst,
-            chrom2tsbs_statistics,
         )
         for chrom in chrom_lst
     ]
@@ -402,7 +397,6 @@ def call_somatic_substitutions(
     p.close()
     p.join()
     ccs2sbs.vcflib.dump_ccs2sbs_sbs(chrom_lst, chrom2tsbs_lst, phase, vcf_header, out_file)  
-    # ccs2sbs.vcflib.dump_ccs2sbs_statistics(chrom_lst, chrom2tsbs_statistics, out_file.replace(".vcf", ".stats"))
     print("finished calling and returning substitutions with {} threads".format(threads))
     cpu_end = time.time() / 60
     duration = cpu_end - cpu_start
