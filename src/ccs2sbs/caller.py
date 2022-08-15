@@ -15,13 +15,6 @@ from typing import Dict, List, Tuple
 from collections import defaultdict, Counter
 
 
-class METRICS:
-    match_post_filter_cnt: int = 0 
-    mismatch_post_filter_cnt: int = 0
-    match_pre_filter_cnt: int = 0
-    mismatch_pre_filter_cnt: int = 0
-   
-    
 def update_allelecounts(
     read,
     tpos2allelecounts: Dict[int, np.ndarray],
@@ -110,7 +103,6 @@ def get_somatic_substitutions(
     chrom2tsbs_lst: Dict[str, List[List[Tuple[str, int, str, str, int, int, int, int, str]]]],
 ) -> List[Tuple[str, int, str, str, int, int, int, float, float]]:
 
-    m = METRICS()
     somatic_tsbs_lst = []
     if vcf_file.endswith(".vcf"):
         sample_snp_set = ccs2sbs.vcflib.load_snp(chrom, vcf_file)
@@ -125,7 +117,7 @@ def get_somatic_substitutions(
             hetsnp2bidx,
             hetsnp2hidx,
         ) = ccs2sbs.vcflib.get_phased_hetsnps(phased_vcf_file, chrom, chrom_len)
-  
+ 
     alignments = pysam.AlignmentFile(bam_file, "rb")
     for loci in loci_lst:
         chunkloci_lst = ccs2sbs.util.chunkloci(loci)
@@ -151,8 +143,8 @@ def get_somatic_substitutions(
                 ccs_somatic_tsbs_candidate_lst = [] 
                 ccs_somatic_qsbs_candidate_lst = [] 
                 ccs_somatic_qsbs_candidate_bq_lst = []
-                # ccs2sbs.cslib.cs2mut(read)
-                ccs2sbs.cslib.cs2subindel(read)
+                # ccs2sbs.cslib.cs2mut(read) ## TODO: comment
+                ccs2sbs.cslib.cs2subindel(read) ## TODO: comment
                 for idx, tsbs in enumerate(read.tsbs_lst):
                     if tsbs in sample_snp_set:
                         continue
@@ -185,9 +177,8 @@ def get_somatic_substitutions(
                 if len(ccs_somatic_tsbs_candidate_lst) == 0:
                     continue
                 
-                # print(read.qname, ccs_somatic_tsbs_candidate_lst)
-                # for tsbs in ccs_somatic_tsbs_candidate_lst: ## TODO
-                #     somatic_tsbs_candidate_lst.append(tsbs)
+                for tsbs in ccs_somatic_tsbs_candidate_lst: ## TODO
+                    somatic_tsbs_candidate_lst.append(tsbs)
                
                 trimmed_qstart = math.floor(min_trim * read.qlen)
                 trimmed_qend = math.ceil((1 - min_trim) * read.qlen)
@@ -220,6 +211,13 @@ def get_somatic_substitutions(
                     if mismatch_count > max_mismatch_count:
                         continue
                     somatic_tsbs_candidate_lst.append(tsbs) 
+
+            ## for tsbs in set(somatic_tsbs_candidate_lst): ## TODO: comment
+            ##     _, tpos, ref, alt = tsbs 
+            ##     if tpos <= chunk_start or tpos >= chunk_end:
+            ##         continue
+            ##     bq, vaf, ref_count, alt_count, ins_count, del_count, total_count = get_sbs_allelecounts(tpos, ref, alt, tpos2allelecounts, tpos2qbase2bq_lst)
+            ##     somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, total_count, ref_count, alt_count, vaf, "."))
 
             for tsbs in set(somatic_tsbs_candidate_lst):
                 _, tpos, ref, alt = tsbs 
@@ -275,10 +273,7 @@ def get_somatic_substitutions(
                         somatic_tsbs_lst.append(
                             (chrom, tpos, ref, alt, "PASS", bq, total_count, ref_count, alt_count, vaf, ".")
                         )
-                # if phase:
-                #     somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, total_count, ref_count, alt_count, vaf, "."))
-                # else: 
-                #     somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, total_count, ref_count, alt_count, vaf, "."))
+                # somatic_tsbs_lst.append((chrom, tpos, ref, alt, "PASS", bq, total_count, ref_count, alt_count, vaf, ".")) ## TODO: comment
                     
     chrom2tsbs_lst[chrom] = natsort.natsorted(somatic_tsbs_lst)
     alignments.close()
@@ -357,6 +352,19 @@ def call_somatic_substitutions(
         out_file,
     )
     print("ccs2sbs is calling substitutions with {} threads".format(threads))
+    # print("raw single molecule somatic mutations")
+    # print("raw single molecule somatic substitution from high quality reads")
+    print("raw single molecule somatic substitution from high quality reads with MIN_BQ, PON_FILTER, TRIMMED, MISMATCH_FILTER, CALLABLE, MD_THRESHOLD, AB_FILTER")
+    # print("single molecule somatic substitution")
+    ## print("single molecule somatic substitution from high quality reads")
+    # print("single molecule somatic substitution from high quality reads with MIN_BQ")
+    # print("raw single molecule somatic substitution from high quality reads with MIN_BQ, PON_FILTER")
+    # print("raw single molecule somatic substitution from high quality reads with MIN_BQ, PON_FILTER, TRIMMED")
+    # print("raw single molecule somatic substitution from high quality reads with MIN_BQ, PON_FILTER, TRIMMED, MISMATCH_FILTER")
+    # print("raw single molecule somatic substitution from high quality reads with MIN_BQ, PON_FILTER, TRIMMED, MISMATCH_FILTER, CALLABLE")
+    # print("raw single molecule somatic substitution from high quality reads with MIN_BQ, PON_FILTER, TRIMMED, MISMATCH_FILTER, CALLABLE, MD_THRESHOLD")
+    ## print("raw single molecule somatic substitution from high quality reads with MIN_BQ, PON_FILTER, TRIMMED, MISMATCH_FILTER, CALLABLE, MD_THRESHOLD")
+    ## print("raw single molecule somatic substitution from high quality reads with MIN_BQ, PON_FILTER, TRIMMED, MISMATCH_FILTER, CALLABLE, MD_THRESHOLD, AB_FILTER, PHASED")
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2tsbs_lst = manager.dict()

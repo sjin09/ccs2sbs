@@ -172,7 +172,8 @@ def check_out_file(out_file: str):
 def check_vcf_content(
     chrom_lst: List[str], 
     chrom2sub: Dict[str, Tuple[str, int, str, str]], 
-    vcf_file: str):
+    vcf_file: str
+):
 
     state = 0
     for chrom in chrom_lst:

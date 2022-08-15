@@ -408,35 +408,22 @@ def dump_ccs2sbs_sbs(
         ccs2sbs.util.exit()
         
     o = open(out_file, "w")
-    p = open(out_file.replace(".vcf", ".single_molecule_mutations.vcf"), "w")
     o.write("{}\n".format(header))
-    p.write("{}\n".format(header))
     for chrom in chrom_lst:
         for (chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set) in chrom2tsbs_lst[chrom]:
             if phase:
-                o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
-                        chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set
-                    )
-                )
                 if alt_count == 1:
-                    p.write(
+                    o.write(
                         "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF:PS\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}:{}\n".format(
                             chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf, phase_set
                         )
                     )
             else:
-                o.write(
-                    "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
-                        chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf
-                    )
-                )
                 if alt_count == 1:
-                    p.write(
+                    o.write(
                         "{}\t{}\t.\t{}\t{}\t.\t{}\t.\tGT:BQ:DP:AD:VAF\t./.:{}:{:0.0f}:{:0.0f},{:0.0f}:{:.2f}\n".format(
                             chrom, pos, ref, alt, annot, bq, total_count, ref_count, alt_count, vaf
                         )
                     )
     o.close()
-    p.close()
 
