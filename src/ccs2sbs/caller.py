@@ -351,10 +351,10 @@ def call_somatic_substitutions(
         version,
         out_file,
     )
-    print("ccs2sbs is calling substitutions with {} threads".format(threads))
+    # print("ccs2sbs is calling substitutions with {} threads".format(threads))
     # print("raw single molecule somatic mutations")
     # print("raw single molecule somatic substitution from high quality reads")
-    print("raw single molecule somatic substitution from high quality reads with MIN_BQ, PON_FILTER, TRIMMED, MISMATCH_FILTER, CALLABLE, MD_THRESHOLD, AB_FILTER")
+    # print("raw single molecule somatic substitution from high quality reads with MIN_BQ, PON_FILTER, TRIMMED, MISMATCH_FILTER, CALLABLE, MD_THRESHOLD, AB_FILTER")
     # print("single molecule somatic substitution")
     ## print("single molecule somatic substitution from high quality reads")
     # print("single molecule somatic substitution from high quality reads with MIN_BQ")
